@@ -460,7 +460,7 @@ class LoveApp {
       // 1. Đồng bộ thông tin cặp đôi
       const unsubCouple = db.collection('settings').doc('coupleInfo')
         .onSnapshot((doc) => {
-          if (doc.exists()) {
+          if (doc.exists) {
             this.updateCoupleUI(doc.data());
           } else {
             const defaultInfo = window.localDb.get('coupleInfo', window.DEFAULT_MOCK_DATA.coupleInfo);
