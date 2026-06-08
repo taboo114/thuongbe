@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Nơi lưu giữ những khoảnh khắc ngọt ngào và kỷ niệm tình yêu của chúng mình.">
+  <title>thuongbenhat | Nơi Lưu Giữ Kỷ Niệm Tình Yêu</title>
+  <link rel="icon" href="favicon.ico">
+
+  <!-- Cấu hình CSS chính của ứng dụng tình yêu -->
+  <link rel="stylesheet" href="css/love.css">
+
+  <!-- Khai báo PWA Manifest & thẻ iOS -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="thuongbenhat">
+  <link rel="apple-touch-icon" href="img/love_app_icon.png">
+
+  <!-- Firebase Compat SDK (Tối ưu hóa chạy offline và file://) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.5.24/jsrsasign-all-min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
+</head>
+<body class="light">
+
+  <!-- Canvas tạo hiệu ứng trái tim bay lơ lửng -->
+  <canvas id="hearts-canvas"></canvas>
+
+  <!-- Thông báo nhè nhẹ khi có cập nhật mới và dấu chấm đỏ thông báo -->
+  <div id="love-notification-banner" class="love-notification">
+    <span class="notification-icon">💖</span>
+    <span id="love-notification-text" class="notification-text">Có cập nhật mới từ đối phương!</span>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 1. MÀN HÌNH ĐĂNG NHẬP (Ổ khoá hình Trái tim)-->
+  <!-- ========================================== -->
+  <section id="login-section" class="login-container">
+    <div class="login-card card">
+      <!-- Ổ khoá hình trái tim siêu lớn -->
+      <div class="heart-lock-icon big-lock">
+        <svg viewBox="0 0 100 100" width="180" height="180">
+          <!-- Quai khoá -->
+          <path d="M 30,50 A 20,20 0 0,1 70,50 L 70,55 L 62,55 L 62,50 A 12,12 0 0,0 38,50 L 38,55 L 30,55 Z" fill="currentColor" class="lock-shackle"/>
+          <!-- Thân khoá hình trái tim -->
+          <path d="M 50,38 C 55,28 75,28 80,45 C 85,62 55,85 50,90 C 45,85 15,62 20,45 C 25,28 45,28 50,38 Z" fill="currentColor" class="lock-body"/>
+          <!-- Lỗ khoá -->
+          <circle cx="50" cy="52" r="4" fill="var(--card-bg)" />
+          <path d="M 48,52 L 52,52 L 54,64 L 46,64 Z" fill="var(--card-bg)" />
+        </svg>
+      </div>
+
+      <h1 class="login-logo" style="margin-top: 15px;">thuongbenhat</h1>
+      <p class="login-sub" style="margin-bottom: 20px;">Nhập mật khẩu 4 số để mở khoá thế giới của hai đứa</p>
+      
+      <div id="login-error-msg" class="error-msg hidden"></div>
+      
+      <!-- Chấm tròn hiển thị mã PIN nhập vào -->
+      <div class="pin-dots-container" id="pin-dots">
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+      </div>
+
+      <!-- Bàn phím số cảm ứng di động -->
+      <div class="pin-keypad" id="pin-keypad">
+        <button type="button" class="keypad-btn" data-val="1">1</button>
+        <button type="button" class="keypad-btn" data-val="2">2</button>
+        <button type="button" class="keypad-btn" data-val="3">3</button>
+        <button type="button" class="keypad-btn" data-val="4">4</button>
+        <button type="button" class="keypad-btn" data-val="5">5</button>
+        <button type="button" class="keypad-btn" data-val="6">6</button>
+        <button type="button" class="keypad-btn" data-val="7">7</button>
+        <button type="button" class="keypad-btn" data-val="8">8</button>
+        <button type="button" class="keypad-btn" data-val="9">9</button>
+        <button type="button" class="keypad-btn spec-btn" data-val="clear">C</button>
+        <button type="button" class="keypad-btn" data-val="0">0</button>
+        <button type="button" class="keypad-btn spec-btn" data-val="back">⌫</button>
+      </div>
+
+      <!-- Input ẩn để gõ phím vật lý trên máy tính -->
+      <input type="password" id="login-pin-input" maxlength="4" style="opacity:0; position:absolute; z-index:-1;" inputmode="numeric">
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- 2. NỘI DUNG CHÍNH ỨNG DỤNG (SAU ĐĂNG NHẬP) -->
+  <!-- ========================================== -->
+  <section id="app-section" class="hidden">
+    <div class="app-wrapper">
+      
+      <!-- SIDEBAR CHO MÁY TÍNH (STIKY SIDEBAR) -->
+      <aside class="sidebar card">
+        <h2 class="sidebar-logo">thuongbenhat</h2>
+        
+        <nav class="sidebar-menu">
+          <ul class="menu-list">
+            <li><a class="nav-item active" data-tab="home"><span class="nav-icon">🏠</span> Trang chủ <span class="nav-badge hidden" id="badge-home"></span></a></li>
+            <li><a class="nav-item" data-tab="timeline"><span class="nav-icon">📅</span> Kỷ niệm <span class="nav-badge hidden" id="badge-timeline"></span></a></li>
+            <li><a class="nav-item" data-tab="gallery"><span class="nav-icon">📸</span> Album ảnh <span class="nav-badge hidden" id="badge-gallery"></span></a></li>
+            <li><a class="nav-item" data-tab="letters"><span class="nav-icon">✉️</span> Hộp thư tình <span class="nav-badge hidden" id="badge-letters"></span></a></li>
+            <li><a class="nav-item" data-tab="diary"><span class="nav-icon">✍️</span> Nhật ký yêu <span class="nav-badge hidden" id="badge-diary"></span></a></li>
+            <li><a class="nav-item" data-tab="wishlist"><span class="nav-icon">🌟</span> Việc muốn làm <span class="nav-badge hidden" id="badge-wishlist"></span></a></li>
+            <li><a class="nav-item" data-tab="settings"><span class="nav-icon">⚙️</span> Cài đặt</a></li>
+          </ul>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div style="font-size: 13px; font-weight: bold; margin-bottom: 10px;">Góc Của Chúng Mình ❤️</div>
+          <a class="nav-item logout-btn" data-tab="logout"><span class="nav-icon">🚪</span> Đăng xuất</a>
+        </div>
+      </aside>
+
+      <!-- KHU VỰC HIỂN THỊ NỘI DUNG TRANG (SPA) -->
+      <main class="main-content">
+        
+        <!-- Header cho thiết bị di động -->
+        <div class="top-header-actions">
+          <div class="mobile-title">thuongbenhat</div>
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div class="theme-switch-wrapper">
+              <span class="theme-mode-label">🌞</span>
+              <label class="theme-switch" for="theme-toggle-btn">
+                <input type="checkbox" id="theme-toggle-btn">
+                <span class="slider-round"></span>
+              </label>
+              <span class="theme-mode-label">🌙</span>
+            </div>
+            <!-- Nút Đăng xuất trên di động -->
+            <button id="mobile-logout-btn" class="btn-logout-mobile" title="Đăng xuất">🚪 Đăng xuất</button>
+          </div>
+        </div>
+
+
+
+        <!-- ========================================== -->
+        <!-- TAB 1: TRANG CHỦ (Đếm ngày yêu & Lời nhắn) -->
+        <!-- ========================================== -->
+        <div id="page-home" class="app-page active">
+          
+          <!-- Khung Cặp Đôi -->
+          <div class="couple-header">
+            <div class="avatar-container">
+              <div class="avatar-wrapper man">
+                <img id="man-avatar" class="avatar-img" src="" alt="Avatar Anh">
+              </div>
+              <div style="text-align: center; margin-top: 8px; font-weight: 700;" id="man-name"></div>
+            </div>
+            
+            <div class="couple-heart">❤️</div>
+            
+            <div class="avatar-container">
+              <div class="avatar-wrapper woman">
+                <img id="woman-avatar" class="avatar-img" src="" alt="Avatar Em">
+              </div>
+              <div style="text-align: center; margin-top: 8px; font-weight: 700;" id="woman-name"></div>
+            </div>
+          </div>
+
+          <!-- Bộ Đếm Ngày Yêu Cực Đẹp -->
+          <div class="card counter-box">
+            <p class="counter-label">Chúng mình đã bên nhau</p>
+            <div class="counter-days-wrapper">
+              <span id="days-count">0</span> <span style="font-size: 32px;">ngày</span>
+            </div>
+            
+            <!-- Đếm chi tiết đồng hồ tick-tock -->
+            <div class="time-breakdown">
+              <div class="time-unit-card">
+                <span class="time-number" id="time-days">00</span>
+                <span class="time-label">Ngày</span>
+              </div>
+              <div class="time-unit-card">
+                <span class="time-number" id="time-hours">00</span>
+                <span class="time-label">Giờ</span>
+              </div>
+              <div class="time-unit-card">
+                <span class="time-number" id="time-minutes">00</span>
+                <span class="time-label">Phút</span>
+              </div>
+              <div class="time-unit-card">
+                <span class="time-number" id="time-seconds">00</span>
+                <span class="time-label">Giây</span>
+              </div>
+            </div>
+            
+            <p style="margin-top: 20px; font-weight: 600; color: var(--text-muted);">
+              Ngày bắt đầu: <span id="anniversary-date-display" style="color: var(--primary-color);"></span>
+            </p>
+          </div>
+
+          <!-- Mảng Những điều anh muốn nói (Short messages board) -->
+          <div class="card">
+            <h2 style="margin-bottom: 12px; font-size: 20px;">📌 Những Điều Muốn Nói</h2>
+            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px;">Dán những mẩu giấy nhắn đáng yêu, lời động viên hoặc lời tỏ tình ngắn ngủi lên đây nhé.</p>
+            
+            <!-- Grid mảnh giấy nhớ -->
+            <div id="messages-grid" class="messages-grid"></div>
+
+            <!-- Nút gửi lời nhắn nhanh -->
+            <div class="card" style="margin-top: 24px; padding: 16px; background: rgba(255,255,255,0.05); border: 1px dashed var(--card-border);">
+              <h3 style="font-size: 15px; margin-bottom: 10px;">Để Lại Lời Nhắn Mới</h3>
+              <form id="form-add-message" style="margin-bottom: 0;">
+                <label>Ai gửi lời nhắn này?</label>
+                <div style="display: flex; gap: 20px; margin-top: 6px; margin-bottom: 12px;">
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <input type="radio" name="msg-writer" value="Admin" checked style="width: auto; margin: 0;"> Anh 👦🏻
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <input type="radio" name="msg-writer" value="Partner" style="width: auto; margin: 0;"> Bé 👧🏻
+                  </label>
+                </div>
+
+                <input type="text" id="msg-input-text" placeholder="Nhập lời nhắn ngắn gửi người ấy..." maxlength="100" required style="margin-bottom: 10px;">
+                <button type="submit" class="btn btn-primary" style="padding: 8px 16px; font-size: 13px;">Dán Lên Bảng</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 2: DÒNG THỜI GIAN (TIMELINE KỶ NIỆM) -->
+        <!-- ========================================== -->
+        <div id="page-timeline" class="app-page">
+          <div class="top-page-header">
+            <h2 style="font-size: 24px; margin-bottom: 10px;">📅 Dòng Thời Gian Kỷ Niệm</h2>
+            <p style="color: var(--text-muted); margin-bottom: 24px;">Lưu giữ những cột mốc quan trọng nhất từ lần đầu gặp gỡ cho đến tương lai.</p>
+          </div>
+
+          <!-- Form Thêm Cột Mốc -->
+          <details class="card" style="margin-bottom: 24px;" id="details-timeline">
+            <summary style="cursor: pointer; font-weight: 700; color: var(--primary-color);">➕ Thêm Cột Mốc Kỷ Niệm Mới</summary>
+            <form id="form-add-timeline" style="margin-top: 15px;">
+              <label>Người tạo kỷ niệm này?</label>
+              <div style="display: flex; gap: 20px; margin-top: 6px; margin-bottom: 12px;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="radio" name="timeline-writer" value="Admin" checked style="width: auto; margin: 0;"> Anh 👦🏻
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="radio" name="timeline-writer" value="Partner" style="width: auto; margin: 0;"> Bé 👧🏻
+                </label>
+              </div>
+
+              <label for="tl-input-title">Tên cột mốc kỷ niệm</label>
+              <input type="text" id="tl-input-title" placeholder="Ví dụ: Lần đầu tiên đi xem phim..." required>
+              
+              <label for="tl-input-date">Ngày kỷ niệm</label>
+              <input type="date" id="tl-input-date" required>
+              
+              <label for="tl-input-image-file">Tải ảnh kỷ niệm lên (Từ điện thoại/máy tính)</label>
+              <div class="file-upload-zone">
+                <input type="file" id="tl-input-image-file" accept="image/*" required>
+                <div class="file-upload-text">📸 Chọn ảnh hoặc Chụp ảnh mới</div>
+                <div id="tl-upload-preview" class="upload-preview hidden"></div>
+              </div>
+              
+              <label for="tl-input-desc" style="margin-top: 10px; display: block;">Mô tả chi tiết kỷ niệm</label>
+              <textarea id="tl-input-desc" rows="3" placeholder="Ghi lại cảm xúc, chi tiết ngày hôm đó..." required></textarea>
+              
+              <button type="submit" class="btn btn-primary">Lưu Kỷ Niệm</button>
+            </form>
+          </details>
+
+          <!-- Nơi render Dòng thời gian -->
+          <div class="timeline-section">
+            <div id="timeline-container"></div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 3: ALBUM ẢNH (GALLERY)                 -->
+        <!-- ========================================== -->
+        <div id="page-gallery" class="app-page">
+          <div class="top-page-header">
+            <h2 style="font-size: 24px; margin-bottom: 10px;">📸 Album Ảnh Tình Yêu</h2>
+            <p style="color: var(--text-muted); margin-bottom: 24px;">Nơi lưu trữ những hình ảnh hạnh phúc. Bấm vào ảnh để phóng to và xem dạng slideshow.</p>
+          </div>
+
+          <!-- Form thêm ảnh mới -->
+          <details class="card" style="margin-bottom: 24px;" id="details-gallery">
+            <summary style="cursor: pointer; font-weight: 700; color: var(--primary-color);">➕ Tải Ảnh Mới Lên Album</summary>
+            <form id="form-add-photo" style="margin-top: 15px;">
+              <label>Người tải ảnh lên?</label>
+              <div style="display: flex; gap: 20px; margin-top: 6px; margin-bottom: 12px;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="radio" name="photo-writer" value="Admin" checked style="width: auto; margin: 0;"> Anh 👦🏻
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="radio" name="photo-writer" value="Partner" style="width: auto; margin: 0;"> Bé 👧🏻
+                </label>
+              </div>
+
+              <label for="photo-input-file">Chọn ảnh từ máy điện thoại hoặc máy tính</label>
+              <div class="file-upload-zone">
+                <input type="file" id="photo-input-file" accept="image/*" required>
+                <div class="file-upload-text">📸 Chọn ảnh từ Thư viện hoặc Camera</div>
+                <div id="photo-upload-preview" class="upload-preview hidden"></div>
+              </div>
+              
+              <label for="photo-input-desc" style="margin-top: 10px; display: block;">Mô tả bức ảnh</label>
+              <input type="text" id="photo-input-desc" placeholder="Ví dụ: Bé cười tươi lúc đi ăn..." required>
+              
+              <label for="photo-input-date">Ngày chụp ảnh (Mặc định hôm nay)</label>
+              <input type="date" id="photo-input-date">
+              
+              <button type="submit" class="btn btn-primary">Thêm Vào Album</button>
+            </form>
+          </details>
+
+          <!-- Grid hiển thị Gallery -->
+          <div id="gallery-grid" class="gallery-grid"></div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 4: HỘP THƯ TÌNH & THƯ HẸN GIỜ           -->
+        <!-- ========================================== -->
+        <div id="page-letters" class="app-page">
+          <div class="top-page-header">
+            <h2 style="font-size: 24px; margin-bottom: 10px;">✉️ Hộp Thư Tình Cảm Xúc</h2>
+            <p style="color: var(--text-muted); margin-bottom: 24px;">Gửi cho người kia những dòng thư tâm tình, hoặc gửi một lá thư hẹn giờ để đúng ngày kỷ niệm mới được đọc.</p>
+          </div>
+
+          <!-- Form viết thư tình mới -->
+          <details class="card" style="margin-bottom: 24px;" id="details-letters">
+            <summary style="cursor: pointer; font-weight: 700; color: var(--primary-color);">➕ Viết Thư Tình Mới</summary>
+            <form id="form-add-letter" style="margin-top: 15px;">
+              <label>Người gửi lá thư này?</label>
+              <div style="display: flex; gap: 20px; margin-top: 6px; margin-bottom: 12px;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="radio" name="letter-writer" value="Admin" checked style="width: auto; margin: 0;"> Anh 👦🏻
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="radio" name="letter-writer" value="Partner" style="width: auto; margin: 0;"> Bé 👧🏻
+                </label>
+              </div>
+
+              <label for="letter-input-title">Tiêu đề lá thư</label>
+              <input type="text" id="letter-input-title" placeholder="Ví dụ: Gửi bé ngày mưa bão..." required>
+              
+              <div style="margin-bottom: 15px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                  <input type="checkbox" id="letter-input-capsule" style="width: auto; margin: 0;">
+                  Đặt làm Thư Hẹn Giờ (Khóa đến ngày chỉ định)
+                </label>
+              </div>
+
+              <div id="letter-unlock-container" class="hidden">
+                <label for="letter-input-unlock">Ngày mở thư (Đúng ngày này mới đọc được)</label>
+                <input type="date" id="letter-input-unlock">
+              </div>
+
+              <label for="letter-input-content">Nội dung thư tình</label>
+              <textarea id="letter-input-content" rows="6" placeholder="Viết những lời thầm kín, ngọt ngào nhất gửi đến đối phương..." required></textarea>
+              
+              <button type="submit" class="btn btn-primary">Niêm Phong & Gửi Thư</button>
+            </form>
+          </details>
+
+          <!-- Nơi render danh sách thư phong bì -->
+          <div id="letters-grid" class="letters-grid"></div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 5: NHẬT KÝ YÊU (DAILY DIARY)           -->
+        <!-- ========================================== -->
+        <div id="page-diary" class="app-page">
+          <div class="top-page-header">
+            <h2 style="font-size: 24px; margin-bottom: 10px;">✍️ Nhật Ký Tình Yêu Hằng Ngày</h2>
+            <p style="color: var(--text-muted); margin-bottom: 24px;">Ghi lại những khoảnh khắc vui buồn nhỏ bé, cảm xúc hằng ngày đi kèm emoji đại diện tâm trạng.</p>
+          </div>
+
+          <!-- Form Viết Nhật Ký -->
+          <div class="card">
+            <h3 style="font-size: 16px; margin-bottom: 15px;">Viết Nhật Ký Hôm Nay</h3>
+            <form id="form-add-diary">
+              <label>Người viết nhật ký này?</label>
+              <div style="display: flex; gap: 20px; margin-top: 6px; margin-bottom: 12px;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="radio" name="diary-writer" value="Admin" checked style="width: auto; margin: 0;"> Anh 👦🏻
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="radio" name="diary-writer" value="Partner" style="width: auto; margin: 0;"> Bé 👧🏻
+                </label>
+              </div>
+
+              <label>Tâm trạng hôm nay</label>
+              <div class="emoji-selector">
+                <button type="button" class="emoji-select-btn selected" data-emoji="❤️">❤️</button>
+                <button type="button" class="emoji-select-btn" data-emoji="😍">😍</button>
+                <button type="button" class="emoji-select-btn" data-emoji="🥰">🥰</button>
+                <button type="button" class="emoji-select-btn" data-emoji="🥤">🥤</button>
+                <button type="button" class="emoji-select-btn" data-emoji="🎬">🎬</button>
+                <button type="button" class="emoji-select-btn" data-emoji="✈️">✈️</button>
+                <button type="button" class="emoji-select-btn" data-emoji="🐱">🐱</button>
+                <button type="button" class="emoji-select-btn" data-emoji="😢">😢</button>
+                <button type="button" class="emoji-select-btn" data-emoji="😡">😡</button>
+                <button type="button" class="emoji-select-btn" data-emoji="😴">😴</button>
+              </div>
+
+              <label for="diary-input-content">Bạn cảm thấy như thế nào hôm nay?</label>
+              <textarea id="diary-input-content" rows="3" placeholder="Hôm nay hai đứa đi đâu, làm gì, hoặc bạn có điều gì muốn ghi lại..." required></textarea>
+              
+              <button type="submit" class="btn btn-primary">Lưu Nhật Ký</button>
+            </form>
+          </div>
+
+          <!-- Danh sách dòng thời gian nhật ký -->
+          <div id="diary-timeline" class="diary-timeline"></div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 6: DANH SÁCH MONG ƯỚC (WISHLIST)       -->
+        <!-- ========================================== -->
+        <div id="page-wishlist" class="app-page">
+          <div class="top-page-header">
+            <h2 style="font-size: 24px; margin-bottom: 10px;">🌟 Wishlist - Những Điều Muốn Làm Cùng Nhau</h2>
+            <p style="color: var(--text-muted); margin-bottom: 24px;">Lập danh sách những mong ước, kế hoạch chung của hai bạn và đánh dấu khi hoàn thành.</p>
+          </div>
+
+          <!-- Thanh tiến độ hoàn thành -->
+          <div class="card wishlist-progress-container">
+            <span id="wishlist-progress-text" style="font-weight: 700;">Đang tính toán tiến độ...</span>
+            <div class="progress-bar-wrapper">
+              <div id="wishlist-progress-bar" class="progress-bar-fill"></div>
+            </div>
+          </div>
+
+          <!-- Form thêm wish mới -->
+          <div class="card" style="padding: 16px; margin-bottom: 20px;">
+            <h3 style="font-size: 15px; margin-bottom: 10px;">➕ Thêm Mong Ước Mới</h3>
+            <form id="form-add-wish" style="margin-bottom: 0;">
+              <label>Ai tạo mong ước này?</label>
+              <div style="display: flex; gap: 20px; margin-top: 6px; margin-bottom: 12px;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="radio" name="wish-writer" value="Admin" checked style="width: auto; margin: 0;"> Anh 👦🏻
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="radio" name="wish-writer" value="Partner" style="width: auto; margin: 0;"> Bé 👧🏻
+                </label>
+              </div>
+
+              <input type="text" id="wish-input-title" placeholder="Ví dụ: Cùng đi ngắp tuyết rơi ở Sapa..." required style="margin-bottom: 10px;">
+              <button type="submit" class="btn btn-primary" style="padding: 8px 16px; font-size: 13px;">Thêm Vào Danh Sách</button>
+            </form>
+          </div>
+
+          <!-- Danh sách wishlist -->
+          <div id="wishlist-items" class="wishlist-items"></div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 7: CÀI ĐẶT CHUNG                       -->
+        <!-- ========================================== -->
+        <div id="page-settings" class="app-page">
+          <div class="top-page-header">
+            <h2 style="font-size: 24px; margin-bottom: 10px;">⚙️ Cài Đặt Chung</h2>
+            <p style="color: var(--text-muted); margin-bottom: 24px;">Chỉnh sửa thông tin kỷ niệm, thay đổi ngày bắt đầu yêu của hai bạn.</p>
+          </div>
+
+          <div class="card">
+            <h3 style="font-size: 16px; margin-bottom: 15px;">Thông Tin Kỷ Niệm Của Hai Bạn</h3>
+            <form id="form-update-config">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div>
+                  <label for="config-man-name">Tên hiển thị của Anh</label>
+                  <input type="text" id="config-man-name" required>
+                </div>
+                <div>
+                  <label for="config-woman-name">Tên hiển thị của Bé</label>
+                  <input type="text" id="config-woman-name" required>
+                </div>
+              </div>
+
+              <label for="config-start-date">Ngày bắt đầu yêu nhau (Anniversary Date)</label>
+              <input type="datetime-local" id="config-start-date" required style="margin-bottom: 15px;">
+
+              <label>Ảnh đại diện hiển thị của Anh</label>
+              <div class="file-upload-zone" style="margin-bottom: 15px;">
+                <input type="file" id="config-man-avatar-file" accept="image/*">
+                <div class="file-upload-text">👦🏻 Tải ảnh đại diện của Anh lên</div>
+                <div id="config-man-avatar-preview" class="upload-preview hidden"></div>
+              </div>
+
+              <label>Ảnh đại diện hiển thị của Bé</label>
+              <div class="file-upload-zone" style="margin-bottom: 20px;">
+                <input type="file" id="config-woman-avatar-file" accept="image/*">
+                <div class="file-upload-text">👧🏻 Tải ảnh đại diện của Bé lên</div>
+                <div id="config-woman-avatar-preview" class="upload-preview hidden"></div>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width: 100%;">Lưu Thay Đổi</button>
+            </form>
+          </div>
+
+          <!-- Bảng cấu hình Thông báo đẩy FCM V1 (LocalStorage để bảo mật khi dùng GitHub public) -->
+          <div class="card" style="margin-top: 20px;">
+            <h3 style="font-size: 16px; margin-bottom: 10px;">🔔 Cấu Hình Thông Báo Đẩy (FCM V1)</h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">
+              Dán nội dung file khóa Service Account JSON tải về từ Firebase Console vào đây để kích hoạt gửi thông báo đẩy ngoài màn hình khóa cho đối phương. Dữ liệu này được lưu an toàn trực tiếp trên trình duyệt của bạn (không đẩy lên GitHub).
+            </p>
+            <form id="form-update-fcm">
+              <label for="config-fcm-json" style="font-weight: 600; margin-bottom: 6px; display: block;">Nội dung file JSON Service Account</label>
+              <textarea id="config-fcm-json" rows="6" placeholder='Dán toàn bộ nội dung file .json tải từ Firebase Console vào đây. Ví dụ:
+{
+  "project_id": "...",
+  "private_key": "...",
+  "client_email": "..."
+}' style="width: 100%; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); margin-bottom: 15px; resize: vertical; box-sizing: border-box;"></textarea>
+              <button type="submit" class="btn btn-secondary" style="width: auto; font-size: 14px; padding: 10px 20px;">💾 Lưu Khóa Thông Báo</button>
+            </form>
+          </div>
+
+          <!-- Nút Đăng xuất trực quan trên tab Cài đặt -->
+          <div class="card" style="margin-top: 20px; border-color: rgba(255, 77, 109, 0.3); background: rgba(255, 77, 109, 0.03);">
+            <h3 style="font-size: 16px; color: #ff4d6d; margin-bottom: 10px;">🚪 Rời Khỏi Thế Giới Của Hai Đứa</h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">
+              Bấm nút dưới đây để khóa trang web lại. Bạn sẽ cần nhập lại mật khẩu để vào lần sau.
+            </p>
+            <button type="button" id="settings-logout-btn" class="btn" style="background: #ff4d6d; color: white; width: auto; font-size: 14px; padding: 10px 20px;">🚪 Đăng xuất</button>
+          </div>
+
+          <!-- Bảng giả lập thông báo thử nghiệm -->
+          <div class="card" style="margin-top: 20px;">
+            <h3 style="font-size: 16px; margin-bottom: 10px;">🧪 Thử Nghiệm Thông Báo & Chấm Đỏ</h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">
+              Bấm nút dưới đây để chạy giả lập cập nhật từ đối phương. Sau 2 giây, một thông báo trượt xuống sẽ hiển thị và chấm đỏ thông báo sẽ xuất hiện trên tab tương ứng.
+            </p>
+            <button type="button" id="btn-simulate-notification" class="btn btn-secondary" style="width: auto; font-size: 14px; padding: 10px 20px;">🔔 Giả lập Cập nhật mới</button>
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <!-- THANH ĐIỀU HƯỚNG BOTTOM NAV CHO THIẾT BỊ DI ĐỘNG -->
+    <nav class="bottom-nav">
+      <a class="nav-item active" data-tab="home"><span class="nav-icon">🏠</span><span>Trang chủ</span><span class="nav-badge hidden" id="mobile-badge-home"></span></a>
+      <a class="nav-item" data-tab="timeline"><span class="nav-icon">📅</span><span>Kỷ niệm</span><span class="nav-badge hidden" id="mobile-badge-timeline"></span></a>
+      <a class="nav-item" data-tab="gallery"><span class="nav-icon">📸</span><span>Album</span><span class="nav-badge hidden" id="mobile-badge-gallery"></span></a>
+      <a class="nav-item" data-tab="letters"><span class="nav-icon">✉️</span><span>Hộp thư</span><span class="nav-badge hidden" id="mobile-badge-letters"></span></a>
+      <a class="nav-item" data-tab="diary"><span class="nav-icon">✍️</span><span>Nhật ký</span><span class="nav-badge hidden" id="mobile-badge-diary"></span></a>
+      <a class="nav-item" data-tab="wishlist"><span class="nav-icon">🌟</span><span>Ước</span><span class="nav-badge hidden" id="mobile-badge-wishlist"></span></a>
+      <a class="nav-item" data-tab="settings"><span class="nav-icon">⚙️</span><span>Cài đặt</span></a>
+    </nav>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- MODAL SỬA DỮ LIỆU CHUNG (DÙNG CHO TẤT CẢ)    -->
+  <!-- ========================================== -->
+  <!-- POPUP HƯỚNG DẪN CÀI ĐẶT PWA CHO IOS (IPHONE/IPAD) -->
+  <div id="ios-pwa-prompt" class="ios-pwa-prompt hidden">
+    <div class="ios-prompt-card card">
+      <button type="button" class="ios-prompt-close" id="ios-prompt-close-btn">&times;</button>
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <img src="img/love_app_icon.png" class="ios-prompt-icon" alt="App Icon">
+        <div style="flex-grow: 1;">
+          <h4 style="font-size: 15px; font-weight: 700; color: var(--primary-color);">Cài đặt ứng dụng "thuongbenhat"</h4>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Cài đặt app trên iPhone để nhận thông báo đẩy và chạy toàn màn hình:</p>
+        </div>
+      </div>
+      <div class="ios-prompt-steps" style="margin-top: 15px; display: flex; flex-direction: column; gap: 10px; text-align: left;">
+        <div class="ios-prompt-step" style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600;">
+          <span class="step-num" style="background: var(--primary-color); color: white; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px;">1</span>
+          <span>Bấm biểu tượng **Chia sẻ** <span style="font-size: 16px;">⎋</span> ở cạnh dưới Safari.</span>
+        </div>
+        <div class="ios-prompt-step" style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600;">
+          <span class="step-num" style="background: var(--primary-color); color: white; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px;">2</span>
+          <span>Cuộn xuống và chọn **"Thêm vào MH chính"** <span style="font-size: 16px;">➕</span>.</span>
+        </div>
+        <div class="ios-prompt-step" style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600;">
+          <span class="step-num" style="background: var(--primary-color); color: white; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px;">3</span>
+          <span>Mở app từ Màn hình chính & chọn **Cho phép** nhận thông báo! 💕</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="edit-modal" class="edit-modal-overlay hidden">
+    <div class="edit-modal-card card">
+      <button type="button" class="edit-modal-close" id="edit-modal-close-btn">&times;</button>
+      <h3 id="edit-modal-title" style="margin-bottom: 20px; font-size: 18px; color: var(--primary-color);">✏️ Chỉnh Sửa</h3>
+      <form id="edit-modal-form">
+        <!-- Các trường form sẽ được chèn động ở đây bằng JavaScript -->
+        <div id="edit-modal-fields"></div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" id="edit-modal-cancel-btn">Hủy</button>
+          <button type="submit" class="btn btn-primary">Lưu Thay Đổi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- NẠP CÁC SCRIPT CHẠY ỨNG DỤNG -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/hearts.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/love.js"></script>
+</body>
+</html>

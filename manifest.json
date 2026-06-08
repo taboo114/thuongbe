@@ -1,0 +1,23 @@
+{
+  "short_name": "thuongbenhat",
+  "name": "thuongbenhat | Nơi Lưu Giữ Kỷ Niệm Tình Yêu",
+  "icons": [
+    {
+      "src": "img/love_app_icon.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "img/love_app_icon.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "index.html",
+  "background_color": "#fff0f3",
+  "theme_color": "#ff758f",
+  "display": "standalone",
+  "orientation": "portrait"
+}
