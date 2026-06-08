@@ -17,9 +17,11 @@ const firebaseConfig = {
 // Được lưu trữ động trong LocalStorage ở màn hình Cài Đặt của web để bảo mật khi dùng GitHub Pages công cộng
 let serviceAccount = null;
 try {
-  const localSA = localStorage.getItem("thuongbenhat_serviceAccount");
-  if (localSA) {
-    serviceAccount = JSON.parse(localSA);
+  if (typeof localStorage !== 'undefined') {
+    const localSA = localStorage.getItem("thuongbenhat_serviceAccount");
+    if (localSA) {
+      serviceAccount = JSON.parse(localSA);
+    }
   }
 } catch (e) {
   console.error("Lỗi đọc Service Account từ LocalStorage:", e);
