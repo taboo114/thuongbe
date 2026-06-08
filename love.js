@@ -615,6 +615,7 @@ class LoveApp {
 
   // 1. Cập nhật thông tin cặp đôi và bắt đầu bộ đếm ngày yêu
   updateCoupleUI(info) {
+    if (!info) return;
     this.coupleInfo = info;
     
     document.getElementById('man-name').textContent = info.manName || 'Anh';
@@ -624,13 +625,16 @@ class LoveApp {
     document.getElementById('woman-avatar').src = info.womanAvatar || 'https://api.dicebear.com/7.x/adventurer/svg?seed=Lily';
     
     const configStartDateInput = document.getElementById('config-start-date');
-    if (configStartDateInput) {
-      configStartDateInput.value = info.startDate.substring(0, 16);
+    if (configStartDateInput && info.startDate) {
+      const dateStr = typeof info.startDate === 'string' ? info.startDate : (info.startDate.toDate ? info.startDate.toDate().toISOString() : '');
+      if (dateStr) {
+        configStartDateInput.value = dateStr.substring(0, 16);
+      }
     }
     const configManNameInput = document.getElementById('config-man-name');
     const configWomanNameInput = document.getElementById('config-woman-name');
-    if (configManNameInput) configManNameInput.value = info.manName;
-    if (configWomanNameInput) configWomanNameInput.value = info.womanName;
+    if (configManNameInput) configManNameInput.value = info.manName || '';
+    if (configWomanNameInput) configWomanNameInput.value = info.womanName || '';
 
     // Hiển thị sẵn hình ảnh đại diện hiện tại trong phần Cài đặt
     const configManPreview = document.getElementById('config-man-avatar-preview');
@@ -648,34 +652,37 @@ class LoveApp {
       clearInterval(this.counterTimer);
     }
     
-    const startDate = new Date(info.startDate);
-    
-    const updateCounter = () => {
-      const now = new Date();
-      const diffMs = now - startDate;
-      
-      if (diffMs < 0) {
-        document.getElementById('days-count').textContent = '0';
-        return;
+    if (info.startDate) {
+      const startDate = typeof info.startDate === 'string' ? new Date(info.startDate) : (info.startDate.toDate ? info.startDate.toDate() : new Date(info.startDate));
+      if (!isNaN(startDate.getTime())) {
+        const updateCounter = () => {
+          const now = new Date();
+          const diffMs = now - startDate;
+          
+          if (diffMs < 0) {
+            document.getElementById('days-count').textContent = '0';
+            return;
+          }
+          
+          const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+          
+          document.getElementById('days-count').textContent = totalDays;
+          document.getElementById('time-days').textContent = totalDays.toString().padStart(2, '0');
+          document.getElementById('time-hours').textContent = hours.toString().padStart(2, '0');
+          document.getElementById('time-minutes').textContent = minutes.toString().padStart(2, '0');
+          document.getElementById('time-seconds').textContent = seconds.toString().padStart(2, '0');
+
+          const options = { year: 'numeric', month: 'long', day: 'numeric' };
+          document.getElementById('anniversary-date-display').textContent = startDate.toLocaleDateString('vi-VN', options);
+        };
+
+        updateCounter();
+        this.counterTimer = setInterval(updateCounter, 1000);
       }
-      
-      const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-      
-      document.getElementById('days-count').textContent = totalDays;
-      document.getElementById('time-days').textContent = totalDays.toString().padStart(2, '0');
-      document.getElementById('time-hours').textContent = hours.toString().padStart(2, '0');
-      document.getElementById('time-minutes').textContent = minutes.toString().padStart(2, '0');
-      document.getElementById('time-seconds').textContent = seconds.toString().padStart(2, '0');
-
-      const options = { year: 'numeric', month: 'long', day: 'numeric' };
-      document.getElementById('anniversary-date-display').textContent = startDate.toLocaleDateString('vi-VN', options);
-    };
-
-    updateCounter();
-    this.counterTimer = setInterval(updateCounter, 1000);
+    }
   }
 
   // 2. Render Dòng thời gian (Timeline)
