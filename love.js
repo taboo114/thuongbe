@@ -230,7 +230,8 @@ class LoveApp {
       // Khởi tạo các kết nối dữ liệu
       this.initDataSync();
 
-
+      // Cập nhật nhãn trạng thái kết nối Firebase
+      this.updateFirebaseStatusBadge();
     } else {
       this.loginSection.classList.remove('hidden');
       this.appSection.classList.add('hidden');
@@ -453,6 +454,7 @@ class LoveApp {
     this.cleanupFirestoreUnsubs();
 
     if (window.isFirebaseConfigured()) {
+      this.migrateLocalDataToFirebase();
       const db = firebase.firestore();
 
       // 1. Đồng bộ thông tin cặp đôi
@@ -682,6 +684,78 @@ class LoveApp {
         updateCounter();
         this.counterTimer = setInterval(updateCounter, 1000);
       }
+    }
+  }
+
+  updateFirebaseStatusBadge() {
+    const badge = document.getElementById('firebase-status-badge');
+    if (!badge) return;
+    
+    if (window.isFirebaseConfigured()) {
+      badge.textContent = "🟢 Đang kết nối Trực tuyến (Dữ liệu lưu trên Cloud Firebase)";
+      badge.style.background = "rgba(40, 167, 69, 0.15)";
+      badge.style.color = "#28a745";
+    } else {
+      badge.textContent = "🟡 Chạy Ngoại tuyến (Demo - Dữ liệu chỉ lưu trên máy này)";
+      badge.style.background = "rgba(255, 193, 7, 0.15)";
+      badge.style.color = "#ffc107";
+    }
+  }
+
+  async migrateLocalDataToFirebase() {
+    if (!window.isFirebaseConfigured()) return;
+    if (localStorage.getItem("thuongbenhat_migrated_to_firebase") === "true") return;
+
+    console.log("Đang tiến hành di trú dữ liệu từ LocalStorage lên Firebase...");
+    const db = firebase.firestore();
+
+    try {
+      // 1. Di trú Cấu hình cặp đôi
+      const localCoupleInfo = localStorage.getItem("thuongbenhat_coupleInfo");
+      if (localCoupleInfo) {
+        const parsed = JSON.parse(localCoupleInfo);
+        if (parsed && parsed.manName) {
+          await db.collection('settings').doc('coupleInfo').set(parsed);
+          console.log("Di trú coupleInfo thành công.");
+        }
+      }
+
+      // Helper di trú các collection dạng mảng
+      const migrateCollection = async (key, firestoreCol) => {
+        const localDataRaw = localStorage.getItem(`thuongbenhat_${key}`);
+        if (localDataRaw) {
+          const list = JSON.parse(localDataRaw);
+          if (Array.isArray(list) && list.length > 0) {
+            // Xem Firestore đã có dữ liệu chưa để tránh trùng lặp
+            const snapshot = await db.collection(firestoreCol).limit(1).get();
+            if (snapshot.empty) {
+              // Upload từng phần tử lên Firestore
+              for (const item of list) {
+                const itemCopy = { ...item };
+                delete itemCopy.id; // Xóa ID cục bộ để Firebase tự sinh ID mới
+                if (!itemCopy.timestamp) {
+                  itemCopy.timestamp = Date.now();
+                }
+                await db.collection(firestoreCol).add(itemCopy);
+              }
+              console.log(`Di trú thành công ${list.length} mục của collection: ${firestoreCol}`);
+            }
+          }
+        }
+      };
+
+      await migrateCollection('timeline', 'timeline');
+      await migrateCollection('photos', 'photos');
+      await migrateCollection('letters', 'letters');
+      await migrateCollection('diary', 'diary');
+      await migrateCollection('wishlist', 'wishlist');
+      await migrateCollection('messages', 'messages');
+
+      // Đánh dấu đã di trú thành công
+      localStorage.setItem("thuongbenhat_migrated_to_firebase", "true");
+      console.log("Quá trình di trú dữ liệu hoàn tất!");
+    } catch (e) {
+      console.error("Lỗi khi di trú dữ liệu lên Firebase:", e);
     }
   }
 
