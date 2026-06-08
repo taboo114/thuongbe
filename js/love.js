@@ -230,7 +230,8 @@ class LoveApp {
       // Khởi tạo các kết nối dữ liệu
       this.initDataSync();
 
-
+      // Cập nhật nhãn trạng thái kết nối Firebase
+      this.updateFirebaseStatusBadge();
     } else {
       this.loginSection.classList.remove('hidden');
       this.appSection.classList.add('hidden');
@@ -453,6 +454,7 @@ class LoveApp {
     this.cleanupFirestoreUnsubs();
 
     if (window.isFirebaseConfigured()) {
+      this.migrateLocalDataToFirebase();
       const db = firebase.firestore();
 
       // 1. Đồng bộ thông tin cặp đôi
@@ -615,6 +617,7 @@ class LoveApp {
 
   // 1. Cập nhật thông tin cặp đôi và bắt đầu bộ đếm ngày yêu
   updateCoupleUI(info) {
+    if (!info) return;
     this.coupleInfo = info;
     
     document.getElementById('man-name').textContent = info.manName || 'Anh';
@@ -624,13 +627,16 @@ class LoveApp {
     document.getElementById('woman-avatar').src = info.womanAvatar || 'https://api.dicebear.com/7.x/adventurer/svg?seed=Lily';
     
     const configStartDateInput = document.getElementById('config-start-date');
-    if (configStartDateInput) {
-      configStartDateInput.value = info.startDate.substring(0, 16);
+    if (configStartDateInput && info.startDate) {
+      const dateStr = typeof info.startDate === 'string' ? info.startDate : (info.startDate.toDate ? info.startDate.toDate().toISOString() : '');
+      if (dateStr) {
+        configStartDateInput.value = dateStr.substring(0, 16);
+      }
     }
     const configManNameInput = document.getElementById('config-man-name');
     const configWomanNameInput = document.getElementById('config-woman-name');
-    if (configManNameInput) configManNameInput.value = info.manName;
-    if (configWomanNameInput) configWomanNameInput.value = info.womanName;
+    if (configManNameInput) configManNameInput.value = info.manName || '';
+    if (configWomanNameInput) configWomanNameInput.value = info.womanName || '';
 
     // Hiển thị sẵn hình ảnh đại diện hiện tại trong phần Cài đặt
     const configManPreview = document.getElementById('config-man-avatar-preview');
@@ -648,34 +654,109 @@ class LoveApp {
       clearInterval(this.counterTimer);
     }
     
-    const startDate = new Date(info.startDate);
-    
-    const updateCounter = () => {
-      const now = new Date();
-      const diffMs = now - startDate;
-      
-      if (diffMs < 0) {
-        document.getElementById('days-count').textContent = '0';
-        return;
+    if (info.startDate) {
+      const startDate = typeof info.startDate === 'string' ? new Date(info.startDate) : (info.startDate.toDate ? info.startDate.toDate() : new Date(info.startDate));
+      if (!isNaN(startDate.getTime())) {
+        const updateCounter = () => {
+          const now = new Date();
+          const diffMs = now - startDate;
+          
+          if (diffMs < 0) {
+            document.getElementById('days-count').textContent = '0';
+            return;
+          }
+          
+          const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+          
+          document.getElementById('days-count').textContent = totalDays;
+          document.getElementById('time-days').textContent = totalDays.toString().padStart(2, '0');
+          document.getElementById('time-hours').textContent = hours.toString().padStart(2, '0');
+          document.getElementById('time-minutes').textContent = minutes.toString().padStart(2, '0');
+          document.getElementById('time-seconds').textContent = seconds.toString().padStart(2, '0');
+
+          const options = { year: 'numeric', month: 'long', day: 'numeric' };
+          document.getElementById('anniversary-date-display').textContent = startDate.toLocaleDateString('vi-VN', options);
+        };
+
+        updateCounter();
+        this.counterTimer = setInterval(updateCounter, 1000);
       }
-      
-      const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-      
-      document.getElementById('days-count').textContent = totalDays;
-      document.getElementById('time-days').textContent = totalDays.toString().padStart(2, '0');
-      document.getElementById('time-hours').textContent = hours.toString().padStart(2, '0');
-      document.getElementById('time-minutes').textContent = minutes.toString().padStart(2, '0');
-      document.getElementById('time-seconds').textContent = seconds.toString().padStart(2, '0');
+    }
+  }
 
-      const options = { year: 'numeric', month: 'long', day: 'numeric' };
-      document.getElementById('anniversary-date-display').textContent = startDate.toLocaleDateString('vi-VN', options);
-    };
+  updateFirebaseStatusBadge() {
+    const badge = document.getElementById('firebase-status-badge');
+    if (!badge) return;
+    
+    if (window.isFirebaseConfigured()) {
+      badge.textContent = "🟢 Đang kết nối Trực tuyến (Dữ liệu lưu trên Cloud Firebase)";
+      badge.style.background = "rgba(40, 167, 69, 0.15)";
+      badge.style.color = "#28a745";
+    } else {
+      badge.textContent = "🟡 Chạy Ngoại tuyến (Demo - Dữ liệu chỉ lưu trên máy này)";
+      badge.style.background = "rgba(255, 193, 7, 0.15)";
+      badge.style.color = "#ffc107";
+    }
+  }
 
-    updateCounter();
-    this.counterTimer = setInterval(updateCounter, 1000);
+  async migrateLocalDataToFirebase() {
+    if (!window.isFirebaseConfigured()) return;
+    if (localStorage.getItem("thuongbenhat_migrated_to_firebase") === "true") return;
+
+    console.log("Đang tiến hành di trú dữ liệu từ LocalStorage lên Firebase...");
+    const db = firebase.firestore();
+
+    try {
+      // 1. Di trú Cấu hình cặp đôi
+      const localCoupleInfo = localStorage.getItem("thuongbenhat_coupleInfo");
+      if (localCoupleInfo) {
+        const parsed = JSON.parse(localCoupleInfo);
+        if (parsed && parsed.manName) {
+          await db.collection('settings').doc('coupleInfo').set(parsed);
+          console.log("Di trú coupleInfo thành công.");
+        }
+      }
+
+      // Helper di trú các collection dạng mảng
+      const migrateCollection = async (key, firestoreCol) => {
+        const localDataRaw = localStorage.getItem(`thuongbenhat_${key}`);
+        if (localDataRaw) {
+          const list = JSON.parse(localDataRaw);
+          if (Array.isArray(list) && list.length > 0) {
+            // Xem Firestore đã có dữ liệu chưa để tránh trùng lặp
+            const snapshot = await db.collection(firestoreCol).limit(1).get();
+            if (snapshot.empty) {
+              // Upload từng phần tử lên Firestore
+              for (const item of list) {
+                const itemCopy = { ...item };
+                delete itemCopy.id; // Xóa ID cục bộ để Firebase tự sinh ID mới
+                if (!itemCopy.timestamp) {
+                  itemCopy.timestamp = Date.now();
+                }
+                await db.collection(firestoreCol).add(itemCopy);
+              }
+              console.log(`Di trú thành công ${list.length} mục của collection: ${firestoreCol}`);
+            }
+          }
+        }
+      };
+
+      await migrateCollection('timeline', 'timeline');
+      await migrateCollection('photos', 'photos');
+      await migrateCollection('letters', 'letters');
+      await migrateCollection('diary', 'diary');
+      await migrateCollection('wishlist', 'wishlist');
+      await migrateCollection('messages', 'messages');
+
+      // Đánh dấu đã di trú thành công
+      localStorage.setItem("thuongbenhat_migrated_to_firebase", "true");
+      console.log("Quá trình di trú dữ liệu hoàn tất!");
+    } catch (e) {
+      console.error("Lỗi khi di trú dữ liệu lên Firebase:", e);
+    }
   }
 
   // 2. Render Dòng thời gian (Timeline)
@@ -1407,21 +1488,25 @@ class LoveApp {
         updatedData.sender = document.getElementById('edit-writer').value;
       }
 
-      await this.saveEditedItem(collection, id, updatedData);
-      modal.classList.add('hidden');
-      alert('Đã cập nhật thay đổi thành công! 💕');
+      try {
+        await this.saveEditedItem(collection, id, updatedData);
+        modal.classList.add('hidden');
+        alert('Đã cập nhật thay đổi thành công! 💕');
+      } catch (err) {
+        alert('Có lỗi xảy ra khi cập nhật dữ liệu!');
+      }
     };
   }
 
   // Lưu chỉnh sửa vào DB
   saveEditedItem(collection, id, updatedData) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       if (window.isFirebaseConfigured()) {
         firebase.firestore().collection(collection).doc(id).update(updatedData)
           .then(() => resolve())
           .catch(err => {
             console.error("Lỗi cập nhật Firebase:", err);
-            resolve();
+            reject(err);
           });
       } else {
         const list = window.localDb.get(collection) || [];
@@ -1442,7 +1527,10 @@ class LoveApp {
       if (window.isFirebaseConfigured()) {
         firebase.firestore().collection(collection).doc(id).delete()
           .then(() => alert('Đã xóa mục này thành công!'))
-          .catch(err => console.error(err));
+          .catch(err => {
+            console.error(err);
+            alert('Có lỗi xảy ra khi xóa dữ liệu!');
+          });
       } else {
         const list = window.localDb.get(collection) || [];
         const filtered = list.filter(i => i.id !== id);
@@ -1808,7 +1896,7 @@ class LoveApp {
   addData(collectionName, data) {
     // Tự động gán thời gian tạo bản ghi
     data.timestamp = Date.now();
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       if (window.isFirebaseConfigured()) {
         firebase.firestore().collection(collectionName).add(data)
           .then((docRef) => {
@@ -1831,6 +1919,7 @@ class LoveApp {
           .catch(err => {
             console.error(`Lỗi ghi Firebase [${collectionName}]: `, err);
             alert('Không thể kết nối Firebase để lưu. Đang tạm thời lưu Offline!');
+            reject(err);
           });
       } else {
         const list = window.localDb.get(collectionName) || [];
@@ -2101,11 +2190,14 @@ class LoveApp {
   }
 
   updateCoupleInfo(info) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       if (window.isFirebaseConfigured()) {
         firebase.firestore().collection('settings').doc('coupleInfo').set(info)
           .then(() => resolve())
-          .catch(err => console.error(err));
+          .catch(err => {
+            console.error(err);
+            reject(err);
+          });
       } else {
         window.localDb.set('coupleInfo', info);
         this.updateCoupleUI(info);
